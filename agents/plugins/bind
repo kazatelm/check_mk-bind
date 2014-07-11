@@ -1,11 +1,9 @@
-#!/bin/sh
-
-set -e
+#!/bin/sh -e
 
 stats=/etc/bind/zones/named.stats
 
 rm -f $stats
-rndc stats
+rndc stats &&
 echo "<<<bind>>>"
 grep -v '^\[' $stats | \
 	grep -v '^---' | \
