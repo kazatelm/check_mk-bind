@@ -22,6 +22,7 @@ def check(item, params, info):
     now = time.time()
     perfdata = []
     queries = stats.get("Incoming Queries", {}).items()
+    wrapped = False
     for r_type, count in stats.get("Name Server Statistics", {}).items():
         try:
             r_type = {
@@ -36,11 +37,16 @@ def check(item, params, info):
         else:
             queries.append((r_type, count))
     for r_type, count in queries:
-        timedif, rate = get_counter(
-            "bind.{0}".format(r_type.lower()),
-            now, count)
-        r_per_minute = int(rate * 60)
-        perfdata.append((r_type, int(rate * 60), 10, 100))
+        try:
+            timedif, rate = get_counter(
+                "bind.{0}".format(r_type.lower()),
+                now, count)
+            r_per_minute = int(rate * 60)
+            perfdata.append((r_type, int(rate * 60), 10, 100))
+        except MKCounterWrapped:
+            wrapped = True
+        if wrapped:
+            raise MKCounterWrapped("","Counter Wrapped")
     return (0, "OK", perfdata)
 
 check_info["bind"] = {
