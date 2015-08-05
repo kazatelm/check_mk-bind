@@ -1,6 +1,8 @@
 #!/bin/sh -e
 
-stats=/etc/bind/zones/named.stats
+#stats=/etc/bind/zones/named.stats
+# ubuntu
+stats=/var/cache/bind/named.stats
 
 rm -f $stats
 rndc stats &&
