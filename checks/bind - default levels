@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+
+bind_default_levels = (500,1000)
+
+def inventory_bind(info):
+    if len(info):
+        return [("bind" , "bind_default_levels")]
+
+def get_stats(info):
+    label = None
+    stats = {}
+    for e in info:
+        try:
+            value = int(e[-1])
+        except ValueError:
+            label = " ".join(e)
+        else:
+            key = " ".join(e[:-1])
+            stats.setdefault(label, {})[key] = value
+    return stats
+
+def check_bind(item, params, info):
+    stats = get_stats(info)
+    now = time.time()
+    warn,crit = params
+    perfdata = []
+    queries = stats.get("Incoming Queries", {}).items()
+    message = "nok"
+    status = 0
+    for r_type, count in stats.get("Name Server Statistics", {}).items():
+        try:
+            r_type = {
+                "queries resulted in successful answer": "SUCCESS",
+                "requested transfers completed": "TRANSFERT",
+                "recursive queries rejected": "REFUSED",
+                "queries resulted in nxrrset": "NXRRSET",
+                "queries resulted in NXDOMAIN": "NXDOMAIN",
+            }[r_type]
+        except KeyError:
+            continue
+        else:
+            queries.append((r_type, count))
+    for r_type, count in stats.get("Incoming Requests", {}).items():
+        try:
+            r_type = {
+                "QUERY": "QUERYALL",
+            }[r_type]
+        except KeyError:
+            continue
+        else:
+            queries.append((r_type, count))
+    for r_type, count in queries:
+        menofunkce = "funkce_%s" % (r_type)
+        rate = get_rate(menofunkce,now, count)
+        ratemin = (rate*60)
+        perfdata.append((r_type, ratemin))
+        if (r_type == "QUERYALL" and ratemin >= crit):
+            status = 2
+            message = "Critical - unexpected trafic %s - %.2f /min (warn/crit above %s / %s )" % (r_type, ratemin, warn, crit)
+        elif (r_type == "QUERYALL" and ratemin >= warn):
+            status = 1
+            message = "Warn - unexpected trafic %s - %.2f /min (warn/crit above %s / %s ) " % (r_type, ratemin, warn, crit)
+        elif (r_type == "QUERYALL" and ratemin < warn):
+            status = 0
+            message = "Ok - %s - %.2f (warn/crit above %s/%s)" % (r_type, ratemin, warn, crit)
+    return (status, message, perfdata)
+
+check_info["bind"] = {
+    "check_function": check_bind,
+    "inventory_function": inventory_bind,
+    "service_description": "Bind Statistics",
+    "has_perfdata": True,
+}
